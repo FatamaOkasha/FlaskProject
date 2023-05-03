@@ -95,11 +95,93 @@ class User(db.Model):
      
     def __repr__(self):
         return f"{self.first_name} - {self.last_name } - {self.gender } "
+    
+    #Get Request  to http://localhost::5000/
+class GetUser(Resource):
+        def get(self):
+            users=User.query.all()
+            user_list=[]
+            for user in users:
+                user_data={"Id":user.id ,
+                           "FisrtName":user.first_name ,
+                           "LastName":user.last_name ,
+                           "PhoneNumber":user.phone_number ,
+                           "Gender":user.gender ,
+                           "Date":user.date ,
+                           "UserName":user.username ,
+                           "Email":user.email ,
+                           "Password":user.password ,
+                           }
+                user_list.append(user_data)
+            return {"Users" : user_list},200
+ #Post Request  to http://localhost::5000/
+class AddUser(Resource):
+        def post (self):
+            if request.is_json:
+                    user=User(  
+                                first_name=request.json['FisrtName'],
+                                last_name=request.json['LastName'],
+                                phone_number=request.json['PhoneNumber'],
+                                gender=request.json['Gender'],
+                                date=request.json['Date'],
+                                username=request.json['UserName'],
+                                email=request.json['Email'],
+                                password=request.json['Password']
+                    )
+                    db.session.add(user)
+                    db.session.commit()   
+                    # return json response 
+                    return  make_response(jsonify({"Id":user.id ,
+                           "FisrtName":user.first_name ,
+                           "LastName":user.last_name ,
+                           "PhoneNumber":user.phone_number ,
+                           "Gender":user.gender ,
+                           "Date":user.date ,
+                           "UserName":user.username ,
+                           "Email":user.email ,
+                           "Password":user.password }),201)
+            else :
+                return {'error':'Request must be JSON'} ,408
+ #Put Request  to http://localhost::5000/
+class UpdateUser(Resource):
+        def put (self, id):
+            if request.is_json:
+                user=User.query.get(id)
+                if user is None:
+                    return {'error':'not found'}, 404
+                else :
+                        user.first_name=request.json['FisrtName'],
+                        user.last_name=request.json['LastName'],
+                        user.phone_number=request.json['PhoneNumber'],
+                        user.gender=request.json['Gender'],
+                        user.date=request.json['Date'],
+                        user.username=request.json['UserName'],
+                        user.email=request.json['Email'],
+                        user.password=request.json['Password']
+                        db.session.commit()
+                        return 'Updated',200
+            else :
+                   return {'error':'Request must be JSON'}, 400
+#Delete  Request  to http://localhost::5000/
+class DeleteUser(Resource):
+        def delete (self, id):
+                user=User.query.get(id)
+                if user is None:
+                    return {'error':'not found'}, 404
+                db.session.delete(user)
+                db.session.commit()
+                return f'{id} is deleted',200
+api.add_resource(GetUser,'/')
+api.add_resource(AddUser,'/add')
+api.add_resource(UpdateUser,'/update/<int:id>')
+api.add_resource(DeleteUser,'/delete/<int:id>')
+     
+                        
 
-@app.route("/")
-def hello():
-    return "Hello"
+# @app.route("/")
+# def hello():
+#     return "Hello"
 
-# if __name__ == "__main__":
-#     app.run()
+if __name__ == "__main__":
+    app.run()
 
