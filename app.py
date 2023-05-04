@@ -1,19 +1,24 @@
 
-from flask import Flask,  request, jsonify, make_response
-from flask_restful import Resource, Api
+from flask import Flask
+from flask_restful import Resource, Api,reqparse,abort, fields,marshal_with
 from flask_sqlalchemy import SQLAlchemy
 
-# create an instance of flask
 app = Flask(__name__)
-# creating an API object
 api = Api(app)
-# create database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-#sqlalchemy mapper
-db = SQLAlchemy(app)
 
-# add a class
+db=SQLAlchemy(app)
+
+user_args=reqparse.RequestParser()
+user_args.add_argument('firstname',type=str,required=True )
+user_args.add_argument('lastname',type=str,required=True )
+user_args.add_argument('phonenumber',type=str,required=True )
+user_args.add_argument('gender',type=str,required=True )
+user_args.add_argument('date',type=str,required=True )
+user_args.add_argument('username',type=str,help="username required",required=True )
+user_args.add_argument('email',type=str,help="email required",required=True )
+user_args.add_argument('password',type=str,required=True )
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     firstname = db.Column(db.String(30), nullable=False)
@@ -25,85 +30,44 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password=db.Column(db.String(16),nullable=False)
 
-    def __repr__(self):
-        return f"{self.firstname} - {self.lastname} - {self.gender} "
+user_resource_field = {
+    "id":fields.Integer,
+    "firstname":fields.String,
+    "lastname":fields.String,
+    "phonenumber":fields.String,
+    "gender":fields.String,
+    "date":fields.String,
+    "username":fields.String,
+    "email":fields.String,
+    "password":fields.String
 
+}
 
-
-# For GET request to http://localhost:5000/
-class GetUser(Resource):
-    def get(self):
-        users = User.query.all()
-        user_list = []
-        for user in users :
-            user_data = {'Id': user.id, 'FirstName':user.firstname, 'LastName': user.lastname, 'Gender': user.gender,
-                        'PhoneNumber': user.phonenumber,'Date': user.date,
-                        'UserName': user.username,
-                        'Email': user.email,
-                        'Password': user.password}
-            user_list.append(user_data)
-        return {"Users": user_list}, 200
-
-# # For Post request to http://localhost:5000/employee
-class AddUser(Resource):
-    def post(self):
-        if request.is_json:
-            user = User(firstname=request.json['FirstName'], lastname=request.json['LastName'],
-                       gender=request.json['Gender'], phonenumber=request.json['PhoneNumber']
-                       , date=request.json['Date'],
-                         username=request.json['UserName']
-                         , email=request.json['Email']
-                          , password=request.json['Password']
-                          )
-            db.session.add(user)
-            db.session.commit()
-            # return a json response
-            return make_response(jsonify({'Id': user.id, 'First Name': user.firstname, 'Last Name': user.lastname,
-                                          'Gender': user.gender, 'Phone Number': user.phonenumber
-                                          , 'Date': user.date
-                                          , 'User Name': user.username
-                                          , 'Email': user.email
-                                          , 'Password': user.password}), 201)
-        else:
-            return {'error': 'Request must be JSON'}, 400
-
-# # For put request to http://localhost:5000/update/?
-class UpdateUser(Resource):
-    def put(self, id):
-        if request.is_json:
-            user = User.query.get(id)
-            if user is None:
-                return {'error': 'not found'}, 404
-            else:
-                user.firstname = request.json['FirstName']
-                user.lastname = request.json['LastName']
-                user.gender = request.json['Gender']
-                user.phonenumber = request.json['PhoneNumber']
-                user.date = request.json['Date']
-                user.username = request.json['UserName']
-                user.password = request.json['Password']
-                db.session.commit()
-                return 'Updated', 200
-        else:
-            return {'error': 'Request must be JSON'}, 400
-
-# For delete request to http://localhost:5000/delete/?
-class DeleteUser(Resource):
-    def delete(self, id):
-        user = User.query.get(id)
-        if user is None:
-            return {'error': 'not found'}, 404
-        db.session.delete(user)
+# db.create_all()
+class Register(Resource):
+    @marshal_with(user_resource_field)
+    def put(self):
+        args=user_args.parse_args()
+        #check username already taken or not 
+        username=args['username']
+        user=User.query.filter_by(username=username).first()
+        if user:
+            abort(409, message="User already registered with username")
+        user=User(
+                  firstname=args['firstname'],
+                  lastname=args['lastname'],
+                  phonenumber=args['phonenumber'],
+                  gender=args['gender'],
+                  date=args['date'],
+                  username=args['username'],
+                  email=args['email'],
+                  password=args['password'] )
+        db.session.add(user)
         db.session.commit()
-        return f'{id} is deleted', 200
-
-
-api.add_resource(GetUser, '/')
-api.add_resource(AddUser, '/add')
-api.add_resource(UpdateUser, '/update/<int:id>')
-api.add_resource(DeleteUser, '/delete/<int:id>')
-
+        return  user
+    
+#Handle Request
+api.add_resource(Register, '/register')
 
 if __name__ == '__main__':
     app.run(debug=True)
-
